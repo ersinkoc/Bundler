@@ -1,13 +1,238 @@
-import type { Plugin, Kernel } from '../../types.js'
+import type {
+  Plugin,
+  Kernel,
+  ModuleNode,
+  DependencyGraph as IDependencyGraph,
+} from "../../types.js";
+import type { DependencyGraph } from "../../core/graph.js";
 
-export function treeshakePlugin(options?: any): Plugin {
+export interface TreeshakeOptions {
+  pureExternalModules?: boolean;
+  propertyReadSideEffects?: boolean;
+  tryCatchDeoptimization?: boolean;
+}
+
+export function treeshakePlugin(options?: TreeshakeOptions): Plugin {
+  const pureExternal = options?.pureExternalModules ?? true;
+
   return {
-    name: 'treeshake',
-    version: '1.0.0',
-    install(kernel: Kernel) {
-      kernel.hooks.renderChunk.tapAsync('treeshake', async (args, callback) => {
-        callback({ code: args.chunk.code, map: args.chunk.map })
-      })
+    name: "treeshake",
+    apply(kernel: Kernel) {
+      const graph = kernel.context.graph as DependencyGraph;
+
+      kernel.hooks.buildStart.tapAsync("treeshake", async () => {
+        if (graph) {
+          performTreeShaking(graph, pureExternal);
+        }
+      });
     },
+  };
+}
+
+function performTreeShaking(
+  graph: DependencyGraph,
+  pureExternal: boolean,
+): void {
+  const usedExports = new Map<string, Set<string>>();
+  const analyzedModules = new Set<string>();
+
+  for (const [id, node] of graph.modules) {
+    if (node.imported || node.dependents.size > 0) {
+      markModuleExportsUsed(
+        graph,
+        id,
+        usedExports,
+        analyzedModules,
+        pureExternal,
+      );
+    }
   }
+
+  for (const [id, node] of graph.modules) {
+    if (!analyzedModules.has(id)) {
+      markModuleUsed(graph, id, usedExports, analyzedModules);
+    }
+  }
+
+  pruneUnusedModules(graph, usedExports, analyzedModules);
+}
+
+function markModuleExportsUsed(
+  graph: DependencyGraph,
+  moduleId: string,
+  usedExports: Map<string, Set<string>>,
+  analyzedModules: Set<string>,
+  pureExternal: boolean,
+): void {
+  if (analyzedModules.has(moduleId)) {
+    return;
+  }
+
+  analyzedModules.add(moduleId);
+
+  const module = graph.modules.get(moduleId);
+  if (!module) {
+    return;
+  }
+
+  const exportsUsed = new Set<string>();
+
+  for (const dependentId of module.dependents) {
+    const dependentModule = graph.modules.get(dependentId);
+    if (!dependentModule) {
+      continue;
+    }
+
+    for (const imp of dependentModule.info.imports) {
+      if (graph.modules.get(imp.source)?.id === moduleId) {
+        for (const spec of imp.specifiers) {
+          if (spec.type === "default") {
+            exportsUsed.add("default");
+          } else if (spec.type === "named") {
+            exportsUsed.add(spec.imported || spec.local);
+          } else if (spec.type === "namespace") {
+            for (const exp of module.info.exports) {
+              if (exp.type === "named" && exp.name) {
+                exportsUsed.add(exp.name);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  if (module.imported) {
+    for (const exp of module.info.exports) {
+      if (exp.type === "default") {
+        exportsUsed.add("default");
+      } else if (exp.type === "named" && exp.name) {
+        exportsUsed.add(exp.name);
+      }
+    }
+  }
+
+  usedExports.set(moduleId, exportsUsed);
+
+  for (const depId of module.dependencies) {
+    markModuleExportsUsed(
+      graph,
+      depId,
+      usedExports,
+      analyzedModules,
+      pureExternal,
+    );
+  }
+}
+
+function markModuleUsed(
+  graph: DependencyGraph,
+  moduleId: string,
+  usedExports: Map<string, Set<string>>,
+  analyzedModules: Set<string>,
+): void {
+  if (analyzedModules.has(moduleId)) {
+    return;
+  }
+
+  analyzedModules.add(moduleId);
+
+  const module = graph.modules.get(moduleId);
+  if (!module) {
+    return;
+  }
+
+  const exportsUsed = usedExports.get(moduleId) || new Set<string>();
+
+  for (const depId of module.dependencies) {
+    const depModule = graph.modules.get(depId);
+    if (!depModule) {
+      continue;
+    }
+
+    for (const imp of module.info.imports) {
+      if (imp.source === depId) {
+        for (const spec of imp.specifiers) {
+          if (spec.type === "default") {
+            exportsUsed.add("default");
+          } else if (spec.type === "named") {
+            exportsUsed.add(spec.imported || spec.local);
+          }
+        }
+      }
+    }
+
+    markModuleUsed(graph, depId, usedExports, analyzedModules);
+  }
+
+  if (exportsUsed.size > 0 || !usedExports.has(moduleId)) {
+    usedExports.set(moduleId, exportsUsed);
+  }
+}
+
+function pruneUnusedModules(
+  graph: DependencyGraph,
+  usedExports: Map<string, Set<string>>,
+  analyzedModules: Set<string>,
+): void {
+  const toRemove: string[] = [];
+
+  for (const [id] of graph.modules) {
+    if (!analyzedModules.has(id)) {
+      const module = graph.modules.get(id);
+      if (module && module.dependents.size === 0 && !module.imported) {
+        toRemove.push(id);
+      }
+    }
+  }
+
+  for (const id of toRemove) {
+    const module = graph.modules.get(id);
+    if (module) {
+      for (const depId of module.dependencies) {
+        const depModule = graph.modules.get(depId);
+        if (depModule) {
+          depModule.dependents.delete(id);
+        }
+      }
+    }
+
+    graph.modules.delete(id);
+  }
+}
+
+export function analyzeModuleSideEffects(
+  moduleInfo: any,
+  code?: string,
+): boolean {
+  if (!code) {
+    return moduleInfo.hasSideEffects;
+  }
+
+  const hasSideEffects = moduleInfo.hasSideEffects;
+
+  if (!hasSideEffects) {
+    return false;
+  }
+
+  const lines = code.split("\n");
+  const nonDeclarationLines = lines.filter(
+    (line) =>
+      !line.trim().startsWith("//") &&
+      !line.trim().startsWith("/*") &&
+      !line.trim().startsWith("*") &&
+      !line.trim().startsWith("import ") &&
+      !line.trim().startsWith("export ") &&
+      line.trim() !== "" &&
+      !line.trim().startsWith("const ") &&
+      !line.trim().startsWith("let ") &&
+      !line.trim().startsWith("var ") &&
+      !line.trim().startsWith("function ") &&
+      !line.trim().startsWith("class ") &&
+      !line.trim().startsWith("interface ") &&
+      !line.trim().startsWith("type ") &&
+      !line.trim().startsWith("enum "),
+  );
+
+  return nonDeclarationLines.length > 0;
 }

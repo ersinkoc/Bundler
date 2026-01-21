@@ -59,9 +59,14 @@ export async function runCLI(args: string[]): Promise<void> {
   let config: any = {}
 
   if (options.config) {
-    const fileConfig = await loadConfigFile(process.cwd())
+    const fileConfig = await loadConfigFile(options.config, process.cwd())
     if (fileConfig) {
       config = fileConfig
+    }
+  } else {
+    const defaultConfig = await loadConfigFile(undefined, process.cwd())
+    if (defaultConfig) {
+      config = defaultConfig
     }
   }
 

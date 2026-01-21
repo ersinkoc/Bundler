@@ -14,6 +14,7 @@ export interface ResolveOptions {
 
 export class ModuleResolver {
   private options: Required<Omit<ResolveOptions, 'external'>>
+  private externalPatterns: (string | RegExp)[]
 
   constructor(options: ResolveOptions = {}) {
     this.options = {
@@ -22,19 +23,23 @@ export class ModuleResolver {
       mainFields: options.mainFields || ['module', 'main'],
       cwd: options.cwd || process.cwd(),
     }
+    this.externalPatterns = options.external || []
   }
 
   resolve(importPath: string, fromPath: string): string {
-    const result = this.resolveSync(importPath, fromPath)
-
+    // Check external first to avoid unnecessary filesystem operations
     if (this.isExternal(importPath)) {
       return importPath
     }
 
-    return result
+    return this.resolveSync(importPath, fromPath)
   }
 
   resolveSync(importPath: string, fromPath: string): string {
+    if (this.isExternal(importPath)) {
+      return importPath
+    }
+
     const resolved = this.resolveImportPath(importPath, fromPath)
 
     if (!resolved) {
@@ -111,9 +116,29 @@ export class ModuleResolver {
       return null
     }
 
-    const parts = importPath.split('/')
-    const moduleName = parts[0] || ''
-    const subPath = parts.slice(1).join('/')
+    // Handle scoped packages (@scope/package) vs regular packages
+    let moduleName: string
+    let subPath: string
+
+    if (importPath.startsWith('@')) {
+      // Scoped package: @scope/name or @scope/name/subpath
+      const parts = importPath.split('/')
+      if (parts.length < 2) {
+        return null // Invalid: just '@scope' without package name
+      }
+      moduleName = `${parts[0]}/${parts[1]}`
+      subPath = parts.slice(2).join('/')
+    } else {
+      // Regular package: name or name/subpath
+      const slashIndex = importPath.indexOf('/')
+      if (slashIndex === -1) {
+        moduleName = importPath
+        subPath = ''
+      } else {
+        moduleName = importPath.slice(0, slashIndex)
+        subPath = importPath.slice(slashIndex + 1)
+      }
+    }
 
     const modulePath = pathUtils.join(nodeModulesPath, moduleName)
 
@@ -275,8 +300,16 @@ export class ModuleResolver {
     return null
   }
 
-  private isExternal(importPath: string): boolean {
-    for (const external of (this.options as ResolveOptions).external || []) {
+  /**
+   * Check if an import path should be treated as external (not bundled)
+   */
+  isExternal(importPath: string): boolean {
+    // node: protocol is always external
+    if (importPath.startsWith('node:')) {
+      return true
+    }
+
+    for (const external of this.externalPatterns) {
       if (typeof external === 'string') {
         if (importPath === external || importPath.startsWith(`${external}/`)) {
           return true

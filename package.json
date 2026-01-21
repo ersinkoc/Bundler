@@ -32,7 +32,9 @@
       }
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "sideEffects": false,
   "scripts": {
     "build": "tsup",
@@ -72,21 +74,31 @@
     "node": ">=18"
   },
   "peerDependencies": {
-    "typescript": ">=5.0.0",
-    "terser": ">=5.0.0"
+    "terser": ">=5.0.0",
+    "typescript": ">=5.0.0"
   },
   "peerDependenciesMeta": {
-    "typescript": { "optional": true },
-    "terser": { "optional": true }
+    "typescript": {
+      "optional": true
+    },
+    "terser": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
     "@vitest/coverage-v8": "^2.0.0",
     "eslint": "^9.0.0",
     "prettier": "^3.0.0",
+    "terser": "^5.0.0",
     "tsup": "^8.0.0",
     "typescript": "^5.0.0",
-    "vitest": "^2.0.0",
-    "terser": "^5.0.0"
+    "vitest": "^2.0.0"
+  },
+  "dependencies": {
+    "@ampproject/remapping": "^2.3.0",
+    "acorn": "^8.15.0",
+    "acorn-jsx": "^5.3.2",
+    "chokidar": "^5.0.0"
   }
 }

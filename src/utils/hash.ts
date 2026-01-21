@@ -1,20 +1,26 @@
+import * as crypto from "node:crypto";
+
 export class HashUtils {
   hash(content: string): string {
-    let hash = 0
-    if (content.length === 0) return '0'
+    if (content.length === 0) return "0";
 
-    for (let i = 0; i < content.length; i++) {
-      const char = content.charCodeAt(i)
-      hash = (hash << 5) - hash + char
-      hash = hash & hash
-    }
-
-    return Math.abs(hash).toString(36)
+    const hash = crypto.createHash("sha256");
+    hash.update(content);
+    return hash.digest("hex").substring(0, 12);
   }
 
   hashNumber(num: number): string {
-    return this.hash(num.toString())
+    return this.hash(num.toString());
+  }
+
+  hashFile(content: string | Buffer): string {
+    if (typeof content === "string") {
+      return this.hash(content);
+    }
+    const hash = crypto.createHash("sha256");
+    hash.update(content);
+    return hash.digest("hex").substring(0, 12);
   }
 }
 
-export const hashUtils = new HashUtils()
+export const hashUtils = new HashUtils();
