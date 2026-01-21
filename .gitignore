@@ -1,0 +1,17 @@
+node_modules/
+dist/
+dist-ssr/
+*.local/
+.env
+.DS_Store
+coverage/
+*.log
+.vscode/
+.idea/
+*.tsbuildinfo
+website/dist/
+website/node_modules/
+mcp/dist/
+mcp/node_modules/
+examples/**/dist/
+examples/**/node_modules/

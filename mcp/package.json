@@ -1,0 +1,19 @@
+{
+  "name": "@oxog/bundler-mcp",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "index.ts",
+  "bin": {
+    "bundler-mcp": "./index.js"
+  },
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}

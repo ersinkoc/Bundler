@@ -1,0 +1,104 @@
+# @oxog/bundler
+
+Minimal JavaScript/TypeScript bundler with plugin architecture.
+
+## Install
+
+```bash
+npm install @oxog/bundler
+```
+
+## Basic Usage
+
+```typescript
+import { bundle } from '@oxog/bundler'
+
+await bundle({
+  entry: 'src/index.ts',
+  outDir: 'dist',
+  format: ['esm', 'cjs'],
+  minify: true
+})
+```
+
+## CLI
+
+```bash
+npx @oxog/bundler src/index.ts --out dist --format esm,cjs --minify
+```
+
+## API Summary
+
+### Core Functions
+- `bundle(config)` - Bundle files
+- `watch(config)` - Watch and rebuild
+- `defineConfig(config)` - Type-safe config
+- `definePlugin(plugin)` - Create plugin
+
+### Config Options
+- `entry` - Entry point(s): string | string[] | Record<string, string>
+- `outDir` - Output directory
+- `format` - Output formats: 'esm' | 'cjs' | 'iife'
+- `minify` - Enable minification: boolean | 'basic' | 'full'
+- `splitting` - Code splitting
+- `treeshake` - Tree shaking (default: true)
+- `sourcemap` - Source maps: boolean | 'inline' | 'external'
+- `external` - External packages
+- `alias` - Path aliases
+- `plugins` - Plugin array
+
+### Plugins
+- `typescriptPlugin()` - TypeScript support
+- `minifierPlugin()` - Minification
+- `cssPlugin()` - CSS bundling
+- `assetsPlugin()` - Asset handling
+- `sourcemapsPlugin()` - Source maps
+- `splittingPlugin()` - Code splitting
+- `treeshakePlugin()` - Tree shaking
+
+## Common Patterns
+
+### Library Build
+```typescript
+await bundle({
+  entry: 'src/index.ts',
+  outDir: 'dist',
+  format: ['esm', 'cjs'],
+  external: ['react'],
+  minify: true,
+  sourcemap: true
+})
+```
+
+### App Build with Splitting
+```typescript
+await bundle({
+  entry: { main: 'src/main.ts', worker: 'src/worker.ts' },
+  outDir: 'dist',
+  format: ['esm'],
+  splitting: true,
+  minify: 'full'
+})
+```
+
+### Watch Mode
+```typescript
+const watcher = await watch(config)
+watcher.on('end', (result) => console.log('Built!'))
+watcher.on('error', (err) => console.error(err))
+```
+
+## Errors
+
+| Code | Meaning | Solution |
+|------|---------|----------|
+| `ENTRY_NOT_FOUND` | Entry file doesn't exist | Check entry path |
+| `PARSE_ERROR` | Failed to parse file | Check syntax |
+| `RESOLVE_ERROR` | Module not found | Check import path |
+| `CIRCULAR_DEP` | Circular dependency | Refactor imports |
+| `PLUGIN_ERROR` | Plugin failed | Check plugin config |
+
+## Links
+
+- Docs: https://bundler.oxog.dev
+- GitHub: https://github.com/ersinkoc/bundler

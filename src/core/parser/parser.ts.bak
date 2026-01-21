@@ -1,0 +1,298 @@
+export const enum NodeType {
+  PROGRAM = 'Program',
+  IMPORT_DECLARATION = 'ImportDeclaration',
+  EXPORT_NAMED_DECLARATION = 'ExportNamedDeclaration',
+  EXPORT_DEFAULT_DECLARATION = 'ExportDefaultDeclaration',
+  EXPORT_ALL_DECLARATION = 'ExportAllDeclaration',
+  VARIABLE_DECLARATION = 'VariableDeclaration',
+  VARIABLE_DECLARATOR = 'VariableDeclarator',
+  FUNCTION_DECLARATION = 'FunctionDeclaration',
+  CLASS_DECLARATION = 'ClassDeclaration',
+  RETURN_STATEMENT = 'ReturnStatement',
+  IF_STATEMENT = 'IfStatement',
+  FOR_STATEMENT = 'ForStatement',
+  WHILE_STATEMENT = 'WhileStatement',
+  EXPRESSION_STATEMENT = 'ExpressionStatement',
+  IDENTIFIER = 'Identifier',
+  LITERAL = 'Literal',
+  BINARY_EXPRESSION = 'BinaryExpression',
+  UNARY_EXPRESSION = 'UnaryExpression',
+  CALL_EXPRESSION = 'CallExpression',
+  MEMBER_EXPRESSION = 'MemberExpression',
+  NEW_EXPRESSION = 'NewExpression',
+  ARRAY_EXPRESSION = 'ArrayExpression',
+  OBJECT_EXPRESSION = 'ObjectExpression',
+  ARROW_FUNCTION_EXPRESSION = 'ArrowFunctionExpression',
+  ASSIGNMENT_EXPRESSION = 'AssignmentExpression',
+  CONDITIONAL_EXPRESSION = 'ConditionalExpression',
+  LOGICAL_EXPRESSION = 'LogicalExpression',
+  SPREAD_ELEMENT = 'SpreadElement',
+}
+
+export interface ASTNode {
+  type: NodeType
+  loc?: { line: number; column: number }
+}
+
+export interface Program extends ASTNode {
+  type: NodeType.PROGRAM
+  body: Statement[]
+}
+
+export interface ImportDeclaration extends ASTNode {
+  type: NodeType.IMPORT_DECLARATION
+  specifiers: ImportSpecifier[]
+  source: string
+}
+
+export interface ExportNamedDeclaration extends ASTNode {
+  type: NodeType.EXPORT_NAMED_DECLARATION
+  specifiers: ExportSpecifier[]
+  source?: string
+  declaration?: Statement
+}
+
+export interface ExportDefaultDeclaration extends ASTNode {
+  type: NodeType.EXPORT_DEFAULT_DECLARATION
+  declaration: Statement | Expression
+}
+
+export interface ExportAllDeclaration extends ASTNode {
+  type: NodeType.EXPORT_ALL_DECLARATION
+  source: string
+  exported?: string
+}
+
+export interface VariableDeclaration extends ASTNode {
+  type: NodeType.VARIABLE_DECLARATION
+  kind: 'const' | 'let' | 'var'
+  declarations: VariableDeclarator[]
+}
+
+export interface VariableDeclarator extends ASTNode {
+  type: NodeType.VARIABLE_DECLARATOR
+  id: Pattern
+  init?: Expression
+}
+
+export interface FunctionDeclaration extends ASTNode {
+  type: NodeType.FUNCTION_DECLARATION
+  id?: Identifier
+  params: Pattern[]
+  body: BlockStatement
+  async: boolean
+  generator: boolean
+}
+
+export interface ClassDeclaration extends ASTNode {
+  type: NodeType.CLASS_DECLARATION
+  id?: Identifier
+  superClass?: Expression
+  body: ClassBody
+}
+
+export interface ReturnStatement extends ASTNode {
+  type: NodeType.RETURN_STATEMENT
+  argument?: Expression
+}
+
+export interface IfStatement extends ASTNode {
+  type: NodeType.IF_STATEMENT
+  test: Expression
+  consequent: Statement
+  alternate?: Statement
+}
+
+export interface ForStatement extends ASTNode {
+  type: NodeType.FOR_STATEMENT
+  init?: VariableDeclaration | Expression
+  test?: Expression
+  update?: Expression
+  body: Statement
+}
+
+export interface WhileStatement extends ASTNode {
+  type: NodeType.WHILE_STATEMENT
+  test: Expression
+  body: Statement
+}
+
+export interface ExpressionStatement extends ASTNode {
+  type: NodeType.EXPRESSION_STATEMENT
+  expression: Expression
+}
+
+export interface Identifier extends ASTNode {
+  type: NodeType.IDENTIFIER
+  name: string
+}
+
+export interface Literal extends ASTNode {
+  type: NodeType.LITERAL
+  value: string | number | boolean | null
+}
+
+export interface BinaryExpression extends ASTNode {
+  type: NodeType.BINARY_EXPRESSION
+  operator: string
+  left: Expression
+  right: Expression
+}
+
+export interface UnaryExpression extends ASTNode {
+  type: NodeType.UNARY_EXPRESSION
+  operator: string
+  prefix: boolean
+  argument: Expression
+}
+
+export interface CallExpression extends ASTNode {
+  type: NodeType.CALL_EXPRESSION
+  callee: Expression
+  arguments: (Expression | SpreadElement)[]
+}
+
+export interface MemberExpression extends ASTNode {
+  type: NodeType.MEMBER_EXPRESSION
+  object: Expression
+  property: Expression
+  computed: boolean
+}
+
+export interface NewExpression extends ASTNode {
+  type: NodeType.NEW_EXPRESSION
+  callee: Expression
+  arguments: (Expression | SpreadElement)[]
+}
+
+export interface ArrayExpression extends ASTNode {
+  type: NodeType.ARRAY_EXPRESSION
+  elements: (Expression | null | SpreadElement)[]
+}
+
+export interface ObjectExpression extends ASTNode {
+  type: NodeType.OBJECT_EXPRESSION
+  properties: Property[]
+}
+
+export interface ArrowFunctionExpression extends ASTNode {
+  type: NodeType.ARROW_FUNCTION_EXPRESSION
+  params: Pattern[]
+  body: BlockStatement | Expression
+  async: boolean
+}
+
+export interface AssignmentExpression extends ASTNode {
+  type: NodeType.ASSIGNMENT_EXPRESSION
+  operator: string
+  left: Pattern | MemberExpression
+  right: Expression
+}
+
+export interface ConditionalExpression extends ASTNode {
+  type: NodeType.CONDITIONAL_EXPRESSION
+  test: Expression
+  consequent: Expression
+  alternate: Expression
+}
+
+export interface LogicalExpression extends ASTNode {
+  type: NodeType.LOGICAL_EXPRESSION
+  operator: '&&' | '||' | '??'
+  left: Expression
+  right: Expression
+}
+
+export type Statement =
+  | ImportDeclaration
+  | ExportNamedDeclaration
+  | ExportDefaultDeclaration
+  | ExportAllDeclaration
+  | VariableDeclaration
+  | FunctionDeclaration
+  | ClassDeclaration
+  | ReturnStatement
+  | IfStatement
+  | ForStatement
+  | WhileStatement
+  | ExpressionStatement
+
+export type Expression =
+  | Identifier
+  | Literal
+  | BinaryExpression
+  | UnaryExpression
+  | CallExpression
+  | MemberExpression
+  | NewExpression
+  | ArrayExpression
+  | ObjectExpression
+  | ArrowFunctionExpression
+  | AssignmentExpression
+  | ConditionalExpression
+  | LogicalExpression
+
+export type Pattern = Identifier | ArrayPattern | ObjectPattern
+
+export interface ArrayPattern extends ASTNode {
+  type: 'ArrayPattern'
+  elements: (Pattern | null)[]
+}
+
+export interface ObjectPattern extends ASTNode {
+  type: 'ObjectPattern'
+  properties: Property[]
+}
+
+export interface Property extends ASTNode {
+  type: 'Property'
+  key: Expression
+  value: Expression
+  kind: 'init' | 'get' | 'set'
+  shorthand: boolean
+  computed: boolean
+}
+
+export interface ImportSpecifier extends ASTNode {
+  type: 'ImportSpecifier' | 'ImportDefaultSpecifier' | 'ImportNamespaceSpecifier'
+  local: Identifier
+  imported?: Identifier
+}
+
+export interface ExportSpecifier extends ASTNode {
+  type: 'ExportSpecifier'
+  local: Identifier
+  exported: Identifier
+}
+
+export interface SpreadElement extends ASTNode {
+  type: NodeType.SPREAD_ELEMENT
+  argument: Expression
+}
+
+export interface BlockStatement extends ASTNode {
+  type: 'BlockStatement'
+  body: Statement[]
+}
+
+export interface ClassBody extends ASTNode {
+  type: 'ClassBody'
+  body: MethodDefinition[]
+}
+
+export interface MethodDefinition extends ASTNode {
+  type: 'MethodDefinition'
+  key: Expression
+  value: FunctionExpression
+  kind: 'constructor' | 'method' | 'get' | 'set'
+  static: boolean
+}
+
+export interface FunctionExpression extends ASTNode {
+  type: 'FunctionExpression'
+  id?: Identifier
+  params: Pattern[]
+  body: BlockStatement
+  async: boolean
+  generator: boolean
+}
