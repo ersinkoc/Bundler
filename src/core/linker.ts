@@ -177,6 +177,8 @@ export class BundleLinker {
       const module = graph.modules.get(moduleId);
       if (!module) continue;
 
+      const isEntryModule = entryPoints.includes(moduleId);
+
       // Filter module exports based on tree shaking
       const moduleUsedExports = this.usedExports.get(moduleId) || new Set();
       const filteredExports = module.info.exports.filter((exp) => {
@@ -197,26 +199,32 @@ export class BundleLinker {
         moduleInfoWithCode,
         graph,
         modules,
+        entryPoints,
       );
 
-      // Wrap module in IIFE for scope isolation
-      const wrappedModule = this.wrapModuleForScope(
-        moduleId,
-        moduleCode,
-        module.info.exports,
-        this.options.format,
-      );
-      const moduleVarName = this.getModuleVarName(moduleId);
+      if (isEntryModule) {
+        // For entry modules, append code directly (without wrapping)
+        code += moduleCode + "\n";
+      } else {
+        // Wrap non-entry modules in IIFE for scope isolation
+        const wrappedModule = this.wrapModuleForScope(
+          moduleId,
+          moduleCode,
+          module.info.exports,
+          this.options.format,
+        );
+        const moduleVarName = this.getModuleVarName(moduleId);
 
-      code += `const ${moduleVarName} = ${wrappedModule}\n`;
+        code += `const ${moduleVarName} = ${wrappedModule}\n`;
 
-      // Store module exports for use by other modules
-      const exportsObj = this.getExportsObject(
-        module.info.exports,
-        moduleVarName,
-        this.options.format,
-      );
-      moduleExports.set(moduleId, exportsObj);
+        // Store module exports for use by other modules
+        const exportsObj = this.getExportsObject(
+          module.info.exports,
+          moduleVarName,
+          this.options.format,
+        );
+        moduleExports.set(moduleId, exportsObj);
+      }
 
       // Collect exports from entry points
       if (entryPoints.includes(moduleId)) {
@@ -235,6 +243,8 @@ export class BundleLinker {
       code = this.wrapInIIFE(code, this.options.globalName || "App", exports);
     } else if (this.options.format === "cjs") {
       code = this.wrapInCJS(code, exports);
+    } else if (this.options.format === "esm") {
+      code = this.wrapInESM(code, exports);
     }
 
     return {
@@ -259,15 +269,34 @@ export class BundleLinker {
     moduleInfo: any,
     graph: DependencyGraph,
     bundledModules: string[],
+    entryPoints: string[] = [],
   ): string {
     let code = "";
 
     if (this.options.format === "esm") {
-      code = this.transformToESM(moduleId, moduleInfo, graph, bundledModules);
+      code = this.transformToESM(
+        moduleId,
+        moduleInfo,
+        graph,
+        bundledModules,
+        entryPoints,
+      );
     } else if (this.options.format === "cjs") {
-      code = this.transformToCJS(moduleId, moduleInfo, graph, bundledModules);
+      code = this.transformToCJS(
+        moduleId,
+        moduleInfo,
+        graph,
+        bundledModules,
+        entryPoints,
+      );
     } else if (this.options.format === "iife") {
-      code = this.transformToIIFE(moduleId, moduleInfo, graph, bundledModules);
+      code = this.transformToIIFE(
+        moduleId,
+        moduleInfo,
+        graph,
+        bundledModules,
+        entryPoints,
+      );
     }
 
     return code;
@@ -297,23 +326,9 @@ export class BundleLinker {
       if (trimmed.match(/^import\s+['"][^'"]+['"]$/)) {
         continue;
       }
-      // Skip export statements (unless preserving exports for entry module)
-      if (preserveExports && trimmed.startsWith("export ")) {
-        // Check if this export is used
-        const exportMatch = trimmed.match(
-          /^export\s+(?:default\s+)?(?:const|let|var|class|function)\s+(\w+)/,
-        );
-        if (exportMatch) {
-          const exportName = exportMatch[2];
-          if (
-            exportName &&
-            (moduleUsedExports.has(exportName) || !this.options.treeshake)
-          ) {
-            result.push(line);
-          }
-        } else {
-          result.push(line);
-        }
+      // For entry modules, preserve export statements as-is
+      if (preserveExports) {
+        result.push(line);
         continue;
       }
       // Skip export { ... } from statements
@@ -326,24 +341,19 @@ export class BundleLinker {
       }
       // Skip export default statements
       if (trimmed.startsWith("export default")) {
-        if (
-          preserveExports &&
-          (moduleUsedExports.has("default") || !this.options.treeshake)
-        ) {
-          result.push(
-            line.replace("export default ", "const __default_export__ = "),
-          );
-        }
+        result.push(
+          line.replace("export default ", "const __default_export__ = "),
+        );
         continue;
       }
 
-      // Skip unused export const/let/var declarations
-      const declMatch = trimmed.match(/^(export\s+(?:const|let|var)\s+(\w+))/);
-      if (declMatch && this.options.treeshake) {
-        const exportName = declMatch[2];
-        if (exportName && !moduleUsedExports.has(exportName)) {
-          continue;
+      // Handle export const/let/var/class/function declarations
+      if (trimmed.startsWith("export ")) {
+        const declMatch = trimmed.match(/^export\s+(.+)$/);
+        if (declMatch && declMatch[1]) {
+          result.push(declMatch[1]);
         }
+        continue;
       }
 
       result.push(line);
@@ -357,37 +367,43 @@ export class BundleLinker {
     moduleInfo: any,
     graph: DependencyGraph,
     bundledModules: string[],
+    entryPoints: string[] = [],
   ): string {
-    const isEntry = !moduleInfo.imported && moduleInfo.imported === true;
+    const isEntry = entryPoints.includes(moduleId);
     let code = "";
 
-    // Only keep external imports
-    for (const imp of moduleInfo.imports) {
-      const isExternal = !bundledModules.some(
-        (m) => m.endsWith(imp.source) || m.includes(imp.source),
-      );
-      if (
-        isExternal &&
-        !imp.source.startsWith(".") &&
-        !imp.source.startsWith("/")
-      ) {
-        const importCode = this.generateImportStatement(
-          imp.source,
-          imp.specifiers,
+    if (isEntry) {
+      // For entry modules, preserve all imports and exports as-is
+      code = moduleInfo.code || "";
+    } else {
+      // Only keep external imports
+      for (const imp of moduleInfo.imports) {
+        const isExternal = !bundledModules.some(
+          (m) => m.endsWith(imp.source) || m.includes(imp.source),
         );
-        code += importCode + "\n";
+        if (
+          isExternal &&
+          !imp.source.startsWith(".") &&
+          !imp.source.startsWith("/")
+        ) {
+          const importCode = this.generateImportStatement(
+            imp.source,
+            imp.specifiers,
+          );
+          code += importCode + "\n";
+        }
       }
+
+      // Transform bundled module imports to variable accesses
+      const transformedCode = this.transformBundledImports(
+        moduleInfo,
+        graph,
+        bundledModules,
+      );
+
+      // Strip module syntax
+      code += this.stripModuleSyntax(transformedCode, false, moduleId);
     }
-
-    // Transform bundled module imports to variable accesses
-    const transformedCode = this.transformBundledImports(
-      moduleInfo,
-      graph,
-      bundledModules,
-    );
-
-    // Strip module syntax but preserve exports for entry modules
-    code += this.stripModuleSyntax(transformedCode, isEntry, moduleId);
 
     return code;
   }
@@ -450,8 +466,9 @@ export class BundleLinker {
     moduleInfo: any,
     graph: DependencyGraph,
     bundledModules: string[],
+    entryPoints: string[] = [],
   ): string {
-    const isEntry = !moduleInfo.imported && moduleInfo.imported === true;
+    const isEntry = entryPoints.includes(moduleId);
     let code = "";
 
     for (const imp of moduleInfo.imports) {
@@ -467,17 +484,45 @@ export class BundleLinker {
       }
     }
 
-    // Strip module syntax but preserve exports for entry modules
-    code += this.stripModuleSyntax(moduleInfo.code || "", isEntry, moduleId);
+    if (isEntry) {
+      // For entry modules, transform ESM exports to CJS format
+      const moduleCode = moduleInfo.code || "";
+      const lines = moduleCode.split("\n");
+      const transformedLines: string[] = [];
 
-    // Export statements at module level
-    for (const exp of moduleInfo.exports) {
-      if (exp.type === "default") {
-        code += `\nmodule.exports.default = __default_export__`;
-      } else if (exp.type === "named") {
-        code += `\nexports.${exp.name} = ${exp.name}`;
-      } else if (exp.type === "all") {
-        code += `\nObject.assign(exports, require('${exp.source}'))`;
+      for (const line of lines) {
+        const trimmed = line.trim();
+        const exportConstMatch = trimmed.match(/^export\s+const\s+(\w+)\s*=/);
+        if (exportConstMatch) {
+          const varName = exportConstMatch[1];
+          transformedLines.push(line.replace(/^export\s+/, ""));
+          transformedLines.push("exports." + varName + " = " + varName + ";");
+        } else if (trimmed.startsWith("export default ")) {
+          transformedLines.push(
+            line.replace("export default ", "const __default_export__ = "),
+          );
+          transformedLines.push("module.exports = __default_export__;");
+          transformedLines.push("module.exports.default = __default_export__;");
+        } else if (trimmed.startsWith("export ")) {
+          transformedLines.push(line.replace(/^export\s+/, ""));
+        } else {
+          transformedLines.push(line);
+        }
+      }
+
+      code += transformedLines.join("\n");
+    } else {
+      code += this.stripModuleSyntax(moduleInfo.code || "", false, moduleId);
+      // Export statements at module level
+      for (const exp of moduleInfo.exports) {
+        if (exp.type === "default") {
+          code += "\nmodule.exports.default = __default_export__";
+        } else if (exp.type === "named") {
+          const name = exp.name as string;
+          code += "\nexports." + name + " = " + name;
+        } else if (exp.type === "all") {
+          code += "\nObject.assign(exports, require('" + exp.source + "'))";
+        }
       }
     }
 
@@ -489,7 +534,9 @@ export class BundleLinker {
     moduleInfo: any,
     graph: DependencyGraph,
     bundledModules: string[],
+    entryPoints: string[] = [],
   ): string {
+    const isEntry = entryPoints.includes(moduleId);
     let code = "";
 
     for (const imp of moduleInfo.imports) {
@@ -513,33 +560,40 @@ export class BundleLinker {
       }
     }
 
-    code += this.stripModuleSyntax(moduleInfo.code || "", false, moduleId);
-
-    let wrapperCode = "";
-
-    if (this.options.globalName) {
-      wrapperCode += `(function() {\n`;
+    if (isEntry) {
+      // For entry modules in IIFE format, preserve exports as-is
+      code = moduleInfo.code || "";
     } else {
-      wrapperCode += `(function() {\n`;
-    }
+      code += this.stripModuleSyntax(moduleInfo.code || "", false, moduleId);
 
-    wrapperCode += code + "\n";
+      let wrapperCode = "";
 
-    if (moduleInfo.exports.length > 0) {
-      for (const exp of moduleInfo.exports) {
-        if (exp.type === "default") {
-          wrapperCode += `  return __default_export__\n`;
+      if (this.options.globalName) {
+        wrapperCode += `(function() {\n`;
+      } else {
+        wrapperCode += `(function() {\n`;
+      }
+
+      wrapperCode += code + "\n";
+
+      if (moduleInfo.exports.length > 0) {
+        for (const exp of moduleInfo.exports) {
+          if (exp.type === "default") {
+            wrapperCode += `  return __default_export__\n`;
+          }
         }
       }
+
+      wrapperCode += "})";
+
+      if (this.options.globalName) {
+        wrapperCode += `(${this.options.globalName})`;
+      }
+
+      return wrapperCode;
     }
 
-    wrapperCode += "})";
-
-    if (this.options.globalName) {
-      wrapperCode += `(${this.options.globalName})`;
-    }
-
-    return wrapperCode;
+    return code;
   }
 
   /**
@@ -553,7 +607,23 @@ export class BundleLinker {
         exportCode += "\nmodule.exports = __default_export__;";
         exportCode += "\nmodule.exports.default = __default_export__;";
       } else if (exp.type === "named" && exp.name) {
-        exportCode += `\nexports.${exp.name} = ${exp.name};`;
+        const name = exp.name as string;
+        exportCode += "\nexports." + name + " = " + name + ";";
+      }
+    }
+
+    return code + exportCode;
+  }
+
+  private wrapInESM(code: string, exports: Export[]): string {
+    let exportCode = "";
+
+    for (const exp of exports) {
+      if (exp.type === "default") {
+        exportCode += "\nexport default __default_export__;";
+      } else if (exp.type === "named" && exp.name) {
+        const name = exp.name as string;
+        exportCode += "\nexport { " + name + " };";
       }
     }
 
