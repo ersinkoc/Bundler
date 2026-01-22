@@ -115,6 +115,10 @@ export async function bundle(
       format: format as OutputFormat,
       globalName: config.globalName,
       treeshake: !!config.treeshake,
+      manualChunks:
+        typeof config.splitting === "object"
+          ? (config.splitting as any).manualChunks
+          : undefined,
     });
 
     const bundleResult = linker.link(
@@ -161,8 +165,22 @@ export async function bundle(
     }
   }
 
+  const entries = new Map<string, Chunk>();
+  for (const [name, chunk] of Object.entries(bundleResult)) {
+    entries.set(name, {
+      id: name,
+      code: chunk.code,
+      fileName: chunk.fileName,
+      modules: chunk.modules,
+      imports: chunk.imports,
+      exports: chunk.exports,
+      isEntry: chunk.isEntry,
+    });
+  }
+
   const result: BundleResult = {
-    outputs,
+    outputs: bundleResult,
+    entries,
     duration: Date.now() - startTime,
     graph: context.graph,
     warnings: [],

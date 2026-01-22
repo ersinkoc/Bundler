@@ -614,8 +614,7 @@ describe("Bundler - Core Test Suite", () => {
   });
 
   describe("Code Splitting", () => {
-    it.skip("should split code by manual chunks", async () => {
-      // TODO: Implement manual code splitting with chunk configuration
+    it("should split code by manual chunks", async () => {
       await fs.writeFile(`${testDir}/src/a.js`, "export const a = 1");
       await fs.writeFile(`${testDir}/src/b.js`, "export const b = 2");
       await fs.writeFile(
@@ -626,8 +625,10 @@ describe("Bundler - Core Test Suite", () => {
         entry: "src/main.js",
         outDir: "dist",
         cwd: testDir,
-        manualChunks: {
-          vendor: ["src/a.js", "src/b.js"],
+        splitting: {
+          manualChunks: {
+            vendor: ["src/a.js", "src/b.js"],
+          },
         },
       });
       expect(result.outputs.length).toBeGreaterThan(1);
@@ -648,7 +649,7 @@ describe("Bundler - Core Test Suite", () => {
         entry: "src/main.js",
         outDir: "dist",
         cwd: testDir,
-        splitChunks: {
+        splitting: {
           minSize: 5000,
         },
       });
