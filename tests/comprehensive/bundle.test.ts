@@ -518,11 +518,10 @@ describe("Bundler - Core Test Suite", () => {
   });
 
   describe("Tree Shaking", () => {
-    it.skip("should remove unused exports", async () => {
-      // TODO: Implement tree shaking with dead code elimination
+    it("should remove unused exports", async () => {
       await fs.writeFile(
         `${testDir}/src/lib.js`,
-        'export const used = 1\nexport const unused = 2\nexport const alsoUnused = 3',
+        "export const used = 1\nexport const unused = 2\nexport const alsoUnused = 3",
       );
       await fs.writeFile(
         `${testDir}/src/main.js`,
@@ -537,11 +536,10 @@ describe("Bundler - Core Test Suite", () => {
       expect(result.outputs[0]?.contents).toContain("used");
     });
 
-    it.skip("should preserve re-exported modules", async () => {
-      // TODO: Implement re-export preservation in tree shaking
+    it("should preserve re-exported modules", async () => {
       await fs.writeFile(
         `${testDir}/src/original.js`,
-        'export const a = 1\nexport const b = 2',
+        "export const a = 1\nexport const b = 2",
       );
       await fs.writeFile(
         `${testDir}/src/reexport.js`,
@@ -563,7 +561,7 @@ describe("Bundler - Core Test Suite", () => {
       // TODO: Implement pure module detection
       await fs.writeFile(
         `${testDir}/src/pure.js`,
-        'export const sum = (a, b) => a + b\nexport const multiply = (a, b) => a * b',
+        "export const sum = (a, b) => a + b\nexport const multiply = (a, b) => a * b",
       );
       await fs.writeFile(
         `${testDir}/src/main.js`,
@@ -759,7 +757,7 @@ describe("Bundler - Core Test Suite", () => {
       // TODO: Implement TypeScript class transpilation
       await fs.writeFile(
         `${testDir}/src/types.ts`,
-        'class Test { method(): void {} }\nexport const test = new Test()',
+        "class Test { method(): void {} }\nexport const test = new Test()",
       );
       const result = await bundle({
         entry: "src/types.ts",
