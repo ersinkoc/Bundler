@@ -29,26 +29,178 @@ export class BundleLinker {
     entryPoints: string[],
     format: "esm" | "cjs" | "iife",
   ): OutputBundle {
-    // Reset state for each link operation
     this.moduleIdToVarName = new Map();
     this.varNameCounter = 0;
-
-    // Collect used exports for tree shaking
-    const usedExports = this.collectUsedExports(graph, entryPoints);
+    this.usedExports = this.collectUsedExports(graph, entryPoints);
     this.usedExports = usedExports;
 
     const buildOrder = graph.getBuildOrder();
+    return this.generateChunks(graph, entryPoints, buildOrder, format);
+  }
 
-    const entryChunk = this.generateChunk(graph, entryPoints, buildOrder);
+  private generateChunks(
+    graph: DependencyGraph,
+    entryPoints: string[],
+    buildOrder: string[],
+    format: "esm" | "cjs" | "iife",
+  ): OutputBundle {
+    const chunks = new Map<string, any>();
 
-    const fileName = "main.js";
+    const modules = buildOrder.filter(
+      (id) => entryPoints.includes(id) || this.isImported(id, graph),
+    );
+
+    if (this.options.manualChunks) {
+      for (const [chunkName, moduleIds] of Object.entries(
+        this.options.manualChunks,
+      )) {
+        const chunkModules = moduleIds.filter((id) => modules.includes(id));
+        let code = "";
+
+        for (const moduleId of chunkModules) {
+          const module = graph.modules.get(moduleId);
+          if (!module) continue;
+
+          const isEntryModule = entryPoints.includes(moduleId);
+          const moduleCode = this.transformModule(
+            moduleId,
+            module.info,
+            graph,
+            modules,
+            [],
+          );
+
+          code += moduleCode + "\n";
+        }
+
+        code =
+          this.injectModuleExports(code, new Map(), chunkModules, graph) +
+          "\n" +
+          code;
+
+        if (this.options.format === "iife") {
+          code = this.wrapInIIFE(code, "App", []);
+        } else if (this.options.format === "cjs") {
+          code = this.wrapInCJS(code, []);
+        } else {
+          code = code;
+        }
+
+        chunks.set(chunkName, {
+          id: chunkName,
+          code: code.trim(),
+          fileName: `${chunkName}.js`,
+          modules: new Map(),
+          imports: [],
+          exports: [],
+          isEntry: chunkName === "main",
+        });
+      }
+
+      // Add entry point chunk for imports
+      chunks.set("main", {
+        id: "main",
+        code: "",
+        fileName: "main.js",
+        modules: new Map(),
+        imports: Array.from(new Set()),
+        exports: [],
+        isEntry: true,
+      });
+    } else {
+      const entryChunkCode = this.generateEntryChunk(
+        graph,
+        entryPoints,
+        buildOrder,
+        format,
+      );
+      chunks.set("main", entryChunkCode);
+    }
+
+    const outputs: any[] = [];
+    for (const [name, chunk] of chunks) {
+      outputs.push({
+        path: chunk.fileName,
+        contents: chunk.code,
+        size: chunk.code.length,
+        format: this.options.format,
+        entry: chunk.isEntry ? chunk.fileName : undefined,
+      });
+    }
 
     return {
-      [fileName]: {
-        path: fileName,
-        contents: entryChunk.code,
-        size: entryChunk.code.length,
-      },
+      outputs,
+      entries: outputs,
+    };
+  }
+
+  private generateEntryChunk(
+    graph: DependencyGraph,
+    entryPoints: string[],
+    buildOrder: string[],
+    format: "esm" | "cjs" | "iife",
+  ): any {
+    const modules = buildOrder.filter(
+      (id) => entryPoints.includes(id) || this.isImported(id, graph),
+    );
+
+    let code = "";
+    const imports: string[] = [];
+    const exports: Export[] = [];
+    const externalImports = new Set<string>();
+
+    for (const moduleId of modules) {
+      const module = graph.modules.get(moduleId);
+      if (!module) continue;
+
+      const isEntryModule = entryPoints.includes(moduleId);
+
+      for (const imp of module.info.imports) {
+        const isExternal = !modules.some(
+          (m) => m.endsWith(imp.source) || m.includes(imp.source),
+        );
+        if (
+          isExternal &&
+          !imp.source.startsWith(".") &&
+          !imp.source.startsWith("/")
+        ) {
+          const importCode = this.generateImportStatement(
+            imp.source,
+            imp.specifiers,
+          );
+          code += importCode + "\n";
+          externalImports.add(imp.source);
+        }
+      }
+
+      const moduleCode = this.transformModule(
+        moduleId,
+        module.info,
+        graph,
+        modules,
+        [],
+      );
+
+      code += moduleCode + "\n";
+    }
+
+    code =
+      this.injectModuleExports(code, new Map(), modules, graph) + "\n" + code;
+
+    if (format === "iife") {
+      code = this.wrapInIIFE(code, "App", exports);
+    } else if (format === "cjs") {
+      code = this.wrapInCJS(code, exports);
+    }
+
+    return {
+      id: "main",
+      code: code.trim(),
+      fileName: "main.js",
+      modules: new Map(),
+      imports: Array.from(externalImports),
+      exports,
+      isEntry: true,
     };
   }
 
