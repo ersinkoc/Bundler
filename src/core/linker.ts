@@ -22,6 +22,7 @@ export class BundleLinker {
 
   constructor(options: LinkerOptions) {
     this.options = options;
+    this.usedExports = new Map<string, Set<string>>();
   }
 
   link(
