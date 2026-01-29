@@ -1,4 +1,4 @@
-import { Github, Package, Zap, TreeDeciduous, Layers, ArrowRight, FileCode, Settings, ChevronRight, Sparkles, Copy, Check, Menu, X, Clock, Box, Code2 } from 'lucide-react'
+import { Github, Package, Zap, TreeDeciduous, Layers, ArrowRight, FileCode, Settings, ChevronRight, Sparkles, Copy, Check, Menu, X, Clock, Box, Code2, Heart } from 'lucide-react'
 import { CodeBlock } from '@oxog/codeshine/react'
 import { useState } from 'react'
 
@@ -57,6 +57,16 @@ usedFunction()
 
 // Result: 40% smaller bundle`
 
+const codeSplitCode = `export default defineConfig({
+  entry: 'src/index.ts',
+  codeSplitting: {
+    manualChunks: {
+      vendor: ['lodash', 'axios'],
+      utils: ['src/utils/**/*.ts'],
+    },
+  },
+})`
+
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false)
 
@@ -105,7 +115,7 @@ function StatCard({ icon: Icon, value, label, color }: {
 }) {
   return (
     <div className="text-center p-6">
-      <div className={`w-12 h-12 rounded-2xl ${color} flex items-center justify-center mx-auto mb-4`}>
+      <div className={`w-12 h-12 rounded-2xl ${color} flex items-center justify-center mx-auto mb-4 shadow-lg`}>
         <Icon className="w-6 h-6 text-white" />
       </div>
       <div className="text-3xl md:text-4xl font-bold text-white mb-1">{value}</div>
@@ -136,7 +146,7 @@ function MobileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () => void 
   return (
     <div className="fixed inset-0 z-50 md:hidden">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="absolute top-0 right-0 w-64 h-full bg-zinc-900 border-l border-zinc-800 p-6">
+      <div className="absolute top-0 right-0 w-64 h-full bg-zinc-900 border-l border-zinc-800 p-6 animate-slide-in">
         <button onClick={onClose} className="absolute top-4 right-4 p-2 text-zinc-400 hover:text-white">
           <X className="w-5 h-5" />
         </button>
@@ -156,6 +166,72 @@ function MobileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () => void 
           </a>
         </nav>
       </div>
+    </div>
+  )
+}
+
+function ComparisonTable() {
+  const features = [
+    { name: 'Zero Dependencies', oxog: true, webpack: false, rollup: false, esbuild: true },
+    { name: 'TypeScript Native', oxog: true, webpack: false, rollup: false, esbuild: true },
+    { name: 'Tree Shaking', oxog: true, webpack: true, rollup: true, esbuild: true },
+    { name: 'Code Splitting', oxog: true, webpack: true, rollup: true, esbuild: true },
+    { name: 'Zero Config', oxog: true, webpack: false, rollup: false, esbuild: true },
+    { name: 'Plugin System', oxog: true, webpack: true, rollup: true, esbuild: true },
+    { name: 'Watch Mode', oxog: true, webpack: true, rollup: true, esbuild: true },
+    { name: 'Source Maps', oxog: true, webpack: true, rollup: true, esbuild: true },
+  ]
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead>
+          <tr className="border-b border-zinc-800">
+            <th className="text-left py-4 px-4 text-zinc-400 font-medium">Feature</th>
+            <th className="text-center py-4 px-4">
+              <span className="text-indigo-400 font-semibold">@oxog/bundler</span>
+            </th>
+            <th className="text-center py-4 px-4 text-zinc-500">Webpack</th>
+            <th className="text-center py-4 px-4 text-zinc-500">Rollup</th>
+            <th className="text-center py-4 px-4 text-zinc-500">esbuild</th>
+          </tr>
+        </thead>
+        <tbody>
+          {features.map((feature) => (
+            <tr key={feature.name} className="border-b border-zinc-800/50 hover:bg-zinc-800/20 transition-colors">
+              <td className="py-4 px-4 text-zinc-300">{feature.name}</td>
+              <td className="text-center py-4 px-4">
+                {feature.oxog ? (
+                  <Check className="w-5 h-5 text-emerald-400 mx-auto" />
+                ) : (
+                  <X className="w-5 h-5 text-zinc-600 mx-auto" />
+                )}
+              </td>
+              <td className="text-center py-4 px-4">
+                {feature.webpack ? (
+                  <Check className="w-5 h-5 text-zinc-500 mx-auto" />
+                ) : (
+                  <X className="w-5 h-5 text-zinc-600 mx-auto" />
+                )}
+              </td>
+              <td className="text-center py-4 px-4">
+                {feature.rollup ? (
+                  <Check className="w-5 h-5 text-zinc-500 mx-auto" />
+                ) : (
+                  <X className="w-5 h-5 text-zinc-600 mx-auto" />
+                )}
+              </td>
+              <td className="text-center py-4 px-4">
+                {feature.esbuild ? (
+                  <Check className="w-5 h-5 text-zinc-500 mx-auto" />
+                ) : (
+                  <X className="w-5 h-5 text-zinc-600 mx-auto" />
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }
@@ -320,8 +396,23 @@ export default function App() {
         </div>
       </section>
 
+      {/* Comparison */}
+      <section className="section section-alt">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">How We Compare</h2>
+            <p className="text-zinc-400 text-lg">
+              See how @oxog/bundler stacks up against other bundlers
+            </p>
+          </div>
+          <div className="glass rounded-2xl p-6">
+            <ComparisonTable />
+          </div>
+        </div>
+      </section>
+
       {/* Quick Start */}
-      <section id="quickstart" className="section section-alt">
+      <section id="quickstart" className="section">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold mb-4">Quick Start</h2>
@@ -377,7 +468,7 @@ export default function App() {
       </section>
 
       {/* Tree Shaking */}
-      <section className="section">
+      <section className="section section-alt">
         <div className="max-w-6xl mx-auto">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div>
@@ -413,6 +504,48 @@ export default function App() {
                 highlightLines={[2, 5, 7]}
                 className="codeshine-container"
               />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Code Splitting */}
+      <section className="section">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            <div className="order-2 lg:order-1">
+              <CodeBlock
+                code={codeSplitCode}
+                language="typescript"
+                theme="github-dark"
+                lineNumbers
+                copyButton
+                highlightLines={[3, 4, 5, 6, 7]}
+                className="codeshine-container"
+              />
+            </div>
+            <div className="order-1 lg:order-2">
+              <div className="pill mb-6">
+                <Layers className="w-4 h-4 text-blue-400" />
+                <span>Code Splitting</span>
+              </div>
+              <h2 className="text-3xl md:text-4xl font-bold mb-4">
+                Optimize loading performance
+              </h2>
+              <p className="text-zinc-400 text-lg mb-6 leading-relaxed">
+                Split your code into separate chunks for optimal loading.
+                Configure manual chunks to group dependencies strategically.
+              </p>
+              <ul className="space-y-3">
+                {['Manual chunk configuration', 'Vendor code separation', 'Dynamic imports support'].map((item) => (
+                  <li key={item} className="flex items-center gap-3 text-zinc-300">
+                    <div className="w-5 h-5 rounded-full bg-blue-500/20 flex items-center justify-center">
+                      <Check className="w-3 h-3 text-blue-400" />
+                    </div>
+                    {item}
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
         </div>
@@ -499,22 +632,35 @@ export default function App() {
       </section>
 
       {/* Footer */}
-      <footer className="py-8 px-6 border-t border-zinc-800/50">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-              <Package className="w-4 h-4 text-white" />
+      <footer className="py-12 px-6 border-t border-zinc-800/50">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+                <Package className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <div className="font-semibold text-white">@oxog/bundler</div>
+                <div className="text-zinc-500 text-sm">Zero-Config JavaScript Bundler</div>
+              </div>
             </div>
-            <span className="text-zinc-500 text-sm">@oxog/bundler</span>
+            <div className="flex items-center gap-8 text-sm">
+              <a href="https://github.com/ersinkoc/Bundler" className="text-zinc-400 hover:text-white transition-colors">
+                GitHub
+              </a>
+              <a href="https://www.npmjs.com/package/@oxog/bundler" className="text-zinc-400 hover:text-white transition-colors">
+                npm
+              </a>
+              <a href="https://github.com/ersinkoc/Bundler/issues" className="text-zinc-400 hover:text-white transition-colors">
+                Issues
+              </a>
+            </div>
           </div>
-          <div className="flex items-center gap-6 text-sm text-zinc-500">
-            <a href="https://github.com/ersinkoc/Bundler" className="hover:text-zinc-300 transition-colors">
-              GitHub
-            </a>
-            <a href="https://www.npmjs.com/package/@oxog/bundler" className="hover:text-zinc-300 transition-colors">
-              npm
-            </a>
-            <span>MIT License</span>
+          <div className="mt-8 pt-8 border-t border-zinc-800/50 flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-zinc-500">
+            <div className="flex items-center gap-1">
+              Made with <Heart className="w-4 h-4 text-red-500 mx-1" /> by Ersin KOC
+            </div>
+            <div>MIT License</div>
           </div>
         </div>
       </footer>
