@@ -1,4 +1,4 @@
-import { Github, Package, Zap, TreeDeciduous, Layers, ArrowRight, FileCode, Settings, ChevronRight, Sparkles, Copy, Check } from 'lucide-react'
+import { Github, Package, Zap, TreeDeciduous, Layers, ArrowRight, FileCode, Settings, ChevronRight, Sparkles, Copy, Check, Menu, X, Clock, Box, Code2 } from 'lucide-react'
 import { CodeBlock } from '@oxog/codeshine/react'
 import { useState } from 'react'
 
@@ -97,6 +97,23 @@ function FeatureCard({ icon: Icon, title, description }: {
   )
 }
 
+function StatCard({ icon: Icon, value, label, color }: {
+  icon: typeof Zap
+  value: string
+  label: string
+  color: string
+}) {
+  return (
+    <div className="text-center p-6">
+      <div className={`w-12 h-12 rounded-2xl ${color} flex items-center justify-center mx-auto mb-4`}>
+        <Icon className="w-6 h-6 text-white" />
+      </div>
+      <div className="text-3xl md:text-4xl font-bold text-white mb-1">{value}</div>
+      <div className="text-zinc-500 text-sm">{label}</div>
+    </div>
+  )
+}
+
 function Terminal({ children }: { children: React.ReactNode }) {
   return (
     <div className="terminal">
@@ -113,7 +130,39 @@ function Terminal({ children }: { children: React.ReactNode }) {
   )
 }
 
+function MobileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 z-50 md:hidden">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute top-0 right-0 w-64 h-full bg-zinc-900 border-l border-zinc-800 p-6">
+        <button onClick={onClose} className="absolute top-4 right-4 p-2 text-zinc-400 hover:text-white">
+          <X className="w-5 h-5" />
+        </button>
+        <nav className="flex flex-col gap-4 mt-12">
+          <a href="#features" onClick={onClose} className="text-zinc-300 hover:text-white py-2 border-b border-zinc-800">Features</a>
+          <a href="#quickstart" onClick={onClose} className="text-zinc-300 hover:text-white py-2 border-b border-zinc-800">Quick Start</a>
+          <a href="#api" onClick={onClose} className="text-zinc-300 hover:text-white py-2 border-b border-zinc-800">API</a>
+          <a href="#plugins" onClick={onClose} className="text-zinc-300 hover:text-white py-2 border-b border-zinc-800">Plugins</a>
+          <a
+            href="https://github.com/ersinkoc/Bundler"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 text-zinc-300 hover:text-white py-2"
+          >
+            <Github className="w-4 h-4" />
+            GitHub
+          </a>
+        </nav>
+      </div>
+    </div>
+  )
+}
+
 export default function App() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
   return (
     <div className="min-h-screen">
       {/* Navigation */}
@@ -123,7 +172,7 @@ export default function App() {
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
               <Package className="w-5 h-5 text-white" />
             </div>
-            <span className="font-semibold text-lg">@oxog/bundler</span>
+            <span className="font-semibold text-lg hidden sm:block">@oxog/bundler</span>
           </a>
 
           <nav className="hidden md:flex items-center gap-8">
@@ -133,17 +182,27 @@ export default function App() {
             <a href="#plugins" className="nav-link">Plugins</a>
           </nav>
 
-          <a
-            href="https://github.com/ersinkoc/Bundler"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn-secondary !py-2 !px-4"
-          >
-            <Github className="w-4 h-4" />
-            <span className="hidden sm:inline">GitHub</span>
-          </a>
+          <div className="flex items-center gap-3">
+            <a
+              href="https://github.com/ersinkoc/Bundler"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-secondary !py-2 !px-4 hidden sm:flex"
+            >
+              <Github className="w-4 h-4" />
+              <span>GitHub</span>
+            </a>
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              className="p-2 text-zinc-400 hover:text-white md:hidden"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+          </div>
         </div>
       </header>
+
+      <MobileMenu isOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
 
       {/* Hero */}
       <section className="hero-bg min-h-[90vh] flex items-center justify-center px-6 relative">
@@ -154,25 +213,25 @@ export default function App() {
             <ChevronRight className="w-4 h-4" />
           </div>
 
-          <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight fade-in fade-in-delay-1">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight fade-in fade-in-delay-1">
             Zero-Config
             <br />
             <span className="gradient-text">JavaScript Bundler</span>
           </h1>
 
-          <p className="text-xl text-zinc-400 mb-10 max-w-2xl mx-auto leading-relaxed fade-in fade-in-delay-2">
+          <p className="text-lg sm:text-xl text-zinc-400 mb-10 max-w-2xl mx-auto leading-relaxed fade-in fade-in-delay-2">
             Fast, lightweight bundler with tree shaking, code splitting,
             and ESM/CJS/IIFE output. Built with TypeScript.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center fade-in fade-in-delay-3">
-            <a href="#quickstart" className="btn-primary">
+            <a href="#quickstart" className="btn-primary w-full sm:w-auto justify-center">
               <Sparkles className="w-4 h-4" />
               Get Started
               <ArrowRight className="w-4 h-4" />
             </a>
 
-            <div className="flex items-center gap-2 px-5 py-3 rounded-xl glass font-mono text-sm">
+            <div className="flex items-center gap-2 px-5 py-3 rounded-xl glass font-mono text-sm w-full sm:w-auto justify-center">
               <span className="text-zinc-500">$</span>
               <span className="text-zinc-300">{installCmd}</span>
               <CopyButton text={installCmd} />
@@ -198,6 +257,18 @@ export default function App() {
                 └─ dist/index.d.ts <span className="text-zinc-600">(2.1 KB)</span>
               </div>
             </Terminal>
+          </div>
+        </div>
+      </section>
+
+      {/* Stats */}
+      <section className="py-16 px-6 border-y border-zinc-800/50 bg-zinc-900/30">
+        <div className="max-w-4xl mx-auto">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <StatCard icon={Clock} value="<50ms" label="Average Build" color="bg-gradient-to-br from-emerald-500 to-teal-600" />
+            <StatCard icon={Box} value="0" label="Dependencies" color="bg-gradient-to-br from-indigo-500 to-purple-600" />
+            <StatCard icon={Code2} value="100%" label="TypeScript" color="bg-gradient-to-br from-blue-500 to-cyan-600" />
+            <StatCard icon={TreeDeciduous} value="40%" label="Smaller Bundles" color="bg-gradient-to-br from-orange-500 to-red-600" />
           </div>
         </div>
       </section>
@@ -392,7 +463,7 @@ export default function App() {
       </section>
 
       {/* CTA */}
-      <section className="section">
+      <section className="section section-alt">
         <div className="max-w-4xl mx-auto">
           <div className="relative rounded-3xl overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-indigo-600/20 via-purple-600/20 to-pink-600/20" />
@@ -407,7 +478,7 @@ export default function App() {
                   href="https://github.com/ersinkoc/Bundler"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="btn-primary"
+                  className="btn-primary justify-center"
                 >
                   <Github className="w-4 h-4" />
                   View on GitHub
@@ -416,7 +487,7 @@ export default function App() {
                   href="https://www.npmjs.com/package/@oxog/bundler"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="btn-secondary"
+                  className="btn-secondary justify-center"
                 >
                   <Package className="w-4 h-4" />
                   View on npm
