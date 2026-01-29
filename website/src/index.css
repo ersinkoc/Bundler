@@ -5,11 +5,7 @@
   --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+/* Tailwind v4 Preflight handles box-sizing, margin, padding reset */
 
 html {
   scroll-behavior: smooth;
