@@ -292,6 +292,99 @@ code, pre {
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4) !important;
 }
 
+/* Codeshine line rendering fix - spans need block display */
+.cs-codeblock {
+  margin: 0;
+  overflow-x: auto;
+  tab-size: 2;
+}
+
+.cs-code {
+  display: block;
+}
+
+.cs-line {
+  display: flex;
+  min-height: 1.5em;
+}
+
+.cs-line-number {
+  display: inline-block;
+  min-width: 2.5em;
+  padding-right: 1em;
+  text-align: right;
+  color: #52525b;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.cs-line-content {
+  flex: 1;
+  white-space: pre;
+}
+
+.cs-line-highlighted {
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.cs-line-focused {
+  background: rgba(99, 102, 241, 0.08);
+}
+
+.cs-line-dimmed {
+  opacity: 0.4;
+}
+
+.cs-line-diff-added {
+  background: rgba(34, 197, 94, 0.15);
+}
+
+.cs-line-diff-removed {
+  background: rgba(239, 68, 68, 0.15);
+}
+
+/* Codeshine header */
+.cs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  border-bottom: 1px solid rgba(63, 63, 70, 0.4);
+  background: rgba(24, 24, 27, 0.5);
+  font-size: 13px;
+}
+
+.cs-filename {
+  color: #a1a1aa;
+  font-family: var(--font-mono);
+}
+
+.cs-language-badge {
+  color: #71717a;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.cs-copy-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: transparent;
+  border: 1px solid rgba(63, 63, 70, 0.4);
+  border-radius: 6px;
+  color: #71717a;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cs-copy-button:hover {
+  background: rgba(63, 63, 70, 0.4);
+  color: #e4e4e7;
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 8px;
