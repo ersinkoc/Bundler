@@ -267,6 +267,47 @@ describe("ModuleResolver", () => {
       const result = resolver.resolve("test-pkg", `${testDir}/main.js`);
       expect(result).toContain("index.js");
     });
+
+    it("should handle exports with empty object (fallback to main)", async () => {
+      await fs.mkdir(`${testDir}/node_modules/test-pkg`, { recursive: true });
+      await fs.writeFile(`${testDir}/node_modules/test-pkg/index.js`, "export const x = 1");
+      await fs.writeFile(`${testDir}/node_modules/test-pkg/package.json`, JSON.stringify({
+        name: "test-pkg",
+        exports: {},
+        main: "./index.js"
+      }));
+
+      const resolver = new ModuleResolver({ cwd: testDir });
+      const result = resolver.resolve("test-pkg", `${testDir}/main.js`);
+      expect(result).toContain("index.js");
+    });
+
+    it("should use module field when available", async () => {
+      await fs.mkdir(`${testDir}/node_modules/test-pkg/esm`, { recursive: true });
+      await fs.writeFile(`${testDir}/node_modules/test-pkg/esm/index.js`, "export const x = 1");
+      await fs.writeFile(`${testDir}/node_modules/test-pkg/package.json`, JSON.stringify({
+        name: "test-pkg",
+        module: "./esm/index.js"
+      }));
+
+      const resolver = new ModuleResolver({ cwd: testDir });
+      const result = resolver.resolve("test-pkg", `${testDir}/main.js`);
+      expect(result).toContain("esm");
+      expect(result).toContain("index.js");
+    });
+
+    it("should handle exports array format", async () => {
+      await fs.mkdir(`${testDir}/node_modules/test-pkg/dist`, { recursive: true });
+      await fs.writeFile(`${testDir}/node_modules/test-pkg/dist/index.js`, "export const x = 1");
+      await fs.writeFile(`${testDir}/node_modules/test-pkg/package.json`, JSON.stringify({
+        name: "test-pkg",
+        exports: ["./dist/index.js"]
+      }));
+
+      const resolver = new ModuleResolver({ cwd: testDir });
+      const result = resolver.resolve("test-pkg", `${testDir}/main.js`);
+      expect(result).toContain("index.js");
+    });
   });
 
   describe("absolute paths", () => {

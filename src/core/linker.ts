@@ -286,127 +286,6 @@ export class BundleLinker {
     return varName;
   }
 
-  private generateChunk(
-    graph: DependencyGraph,
-    entryPoints: string[],
-    buildOrder: string[],
-  ): Chunk {
-    const modules = buildOrder.filter(
-      (id) => entryPoints.includes(id) || this.isImported(id, graph),
-    );
-
-    let code = "";
-    const imports: string[] = [];
-    const exports: Export[] = [];
-    const externalImports: Set<string> = new Set();
-
-    // Collect all external imports first
-    for (const moduleId of modules) {
-      const module = graph.modules.get(moduleId);
-      if (!module) continue;
-
-      for (const imp of module.info.imports) {
-        // Check if this import is to an external module (not in our graph)
-        const isExternal = !modules.some(
-          (m) => m.endsWith(imp.source) || m.includes(imp.source),
-        );
-        if (
-          isExternal &&
-          !imp.source.startsWith(".") &&
-          !imp.source.startsWith("/")
-        ) {
-          externalImports.add(imp.source);
-        }
-      }
-    }
-
-    // Generate bundled code with scope isolation
-    const moduleExports = new Map<string, any>();
-    for (const moduleId of modules) {
-      const module = graph.modules.get(moduleId);
-      if (!module) continue;
-
-      const isEntryModule = entryPoints.includes(moduleId);
-
-      // Filter module exports based on tree shaking
-      const moduleUsedExports = this.usedExports.get(moduleId) || new Set();
-      const filteredExports = module.info.exports.filter((exp) => {
-        if (!this.options.treeshake) return true;
-        if (exp.type === "default") return moduleUsedExports.has("default");
-        if (exp.type === "named" && exp.name)
-          return moduleUsedExports.has(exp.name);
-        return true;
-      });
-
-      const moduleInfoWithCode = {
-        ...module.info,
-        code: module.code,
-        exports: filteredExports,
-      };
-      const moduleCode = this.transformModule(
-        moduleId,
-        moduleInfoWithCode,
-        graph,
-        modules,
-        entryPoints,
-      );
-
-      if (isEntryModule) {
-        // For entry modules, append code directly (without wrapping)
-        code += moduleCode + "\n";
-      } else {
-        // Wrap non-entry modules in IIFE for scope isolation
-        const wrappedModule = this.wrapModuleForScope(
-          moduleId,
-          moduleCode,
-          module.info.exports,
-          this.options.format,
-        );
-        const moduleVarName = this.getModuleVarName(moduleId);
-
-        code += `const ${moduleVarName} = ${wrappedModule}\n`;
-
-        // Store module exports for use by other modules
-        const exportsObj = this.getExportsObject(
-          module.info.exports,
-          moduleVarName,
-          this.options.format,
-        );
-        moduleExports.set(moduleId, exportsObj);
-      }
-
-      // Collect exports from entry points
-      if (entryPoints.includes(moduleId)) {
-        exports.push(...module.info.exports);
-      }
-    }
-
-    // Inject module exports for use by imports
-    code =
-      this.injectModuleExports(code, moduleExports, modules, graph) +
-      "\n" +
-      code;
-
-    // Wrap based on format
-    if (this.options.format === "iife") {
-      code = this.wrapInIIFE(code, this.options.globalName || "App", exports);
-    } else if (this.options.format === "cjs") {
-      code = this.wrapInCJS(code, exports);
-    } else if (this.options.format === "esm") {
-      code = this.wrapInESM(code, exports);
-    }
-
-    return {
-      id: "main",
-      code: code.trim(),
-      fileName: "main.js",
-      modules: new Map<string, ModuleInfo>(),
-      imports,
-      exports,
-      isEntry: true,
-    };
-  }
-
   private isImported(moduleId: string, graph: DependencyGraph): boolean {
     const module = graph.modules.get(moduleId);
     if (!module) return false;
@@ -747,36 +626,11 @@ export class BundleLinker {
 
   /**
    * Wrap CJS output with proper exports
+   * Note: exports are always empty in current implementation
    */
-  private wrapInCJS(code: string, exports: Export[]): string {
-    let exportCode = "";
-
-    for (const exp of exports) {
-      if (exp.type === "default") {
-        exportCode += "\nmodule.exports = __default_export__;";
-        exportCode += "\nmodule.exports.default = __default_export__;";
-      } else if (exp.type === "named" && exp.name) {
-        const name = exp.name as string;
-        exportCode += "\nexports." + name + " = " + name + ";";
-      }
-    }
-
-    return code + exportCode;
-  }
-
-  private wrapInESM(code: string, exports: Export[]): string {
-    let exportCode = "";
-
-    for (const exp of exports) {
-      if (exp.type === "default") {
-        exportCode += "\nexport default __default_export__;";
-      } else if (exp.type === "named" && exp.name) {
-        const name = exp.name as string;
-        exportCode += "\nexport { " + name + " };";
-      }
-    }
-
-    return code + exportCode;
+  private wrapInCJS(code: string, _exports: Export[]): string {
+    // Exports are always empty in current implementation
+    return code;
   }
 
   private generateImportStatement(source: string, specifiers: any[]): string {
@@ -837,85 +691,20 @@ export class BundleLinker {
   private wrapInIIFE(
     code: string,
     globalName: string,
-    exports: Export[],
+    _exports: Export[],
   ): string {
     const indentedCode = code
       .split("\n")
       .map((line) => "  " + line)
       .join("\n");
 
-    // Build return object from exports
-    const exportedNames: string[] = [];
-    let hasDefault = false;
-
-    for (const exp of exports) {
-      if (exp.type === "default") {
-        hasDefault = true;
-      } else if (exp.type === "named" && exp.name) {
-        exportedNames.push(exp.name);
-      }
-    }
-
-    let returnStatement = "";
-    if (hasDefault && exportedNames.length === 0) {
-      returnStatement = "  return __default_export__;";
-    } else if (hasDefault) {
-      returnStatement = `  return { default: __default_export__, ${exportedNames.join(", ")} };`;
-    } else if (exportedNames.length > 0) {
-      returnStatement = `  return { ${exportedNames.join(", ")} };`;
-    } else {
-      returnStatement = "  return {};";
-    }
-
+    // Exports are always empty in current implementation,
+    // so we always return an empty object
     return `var ${globalName} = (function() {
 'use strict';
 ${indentedCode}
-${returnStatement}
+  return {};
 })();`;
-  }
-
-  private wrapModuleForScope(
-    moduleId: string,
-    code: string,
-    exports: Export[],
-    format: string,
-  ): string {
-    if (format === "iife") {
-      return `(function() {\n'use strict';\n${code}\n  return this.exports;\n})()`;
-    } else if (format === "cjs") {
-      return `(function() {\n'use strict';\n${code}\n  return module.exports;\n})()`;
-    } else {
-      return `(function() {\n'use strict';\n${code}\n  return { default: this.default, ...this.namedExports };\n})()`;
-    }
-  }
-
-  private getExportsObject(
-    exports: Export[],
-    moduleVarName: string,
-    format: string,
-  ): any {
-    const result: any = {};
-
-    if (format === "iife" || format === "cjs") {
-      if (exports.find((e) => e.type === "default")) {
-        result.default = `${moduleVarName}.default`;
-      }
-      for (const exp of exports) {
-        if (exp.type === "named" && exp.name) {
-          result[exp.name] = `${moduleVarName}.${exp.name}`;
-        }
-      }
-    } else {
-      for (const exp of exports) {
-        if (exp.type === "default") {
-          result.default = `${moduleVarName}.default`;
-        } else if (exp.type === "named" && exp.name) {
-          result[exp.name] = `${moduleVarName}.${exp.name}`;
-        }
-      }
-    }
-
-    return result;
   }
 
   private injectModuleExports(
@@ -924,45 +713,8 @@ ${returnStatement}
     modules: string[],
     graph: DependencyGraph,
   ): string {
-    let injected = "";
-
-    for (const moduleId of modules) {
-      const module = graph.modules.get(moduleId);
-      if (!module) continue;
-
-      const exports = moduleExports.get(moduleId);
-      if (!exports) continue;
-
-      const moduleVarName = this.getModuleVarName(moduleId);
-
-      for (const imp of module.info.imports) {
-        const isBundled = modules.some(
-          (m) => m.endsWith(imp.source) || m.includes(imp.source),
-        );
-        if (isBundled) {
-          const depExports = moduleExports.get(imp.source);
-          if (depExports) {
-            for (const spec of imp.specifiers) {
-              if (spec.type === "default" && depExports.default) {
-                injected += `const ${spec.local} = ${depExports.default};\n`;
-              } else if (
-                spec.type === "named" &&
-                depExports[spec.imported || spec.local]
-              ) {
-                injected += `const ${spec.local} = ${depExports[spec.imported || spec.local]};\n`;
-              } else if (spec.type === "namespace") {
-                injected += `const ${spec.local} = { ${Object.entries(
-                  depExports,
-                )
-                  .map(([k, v]) => `${k}: ${v}`)
-                  .join(", ")} };\n`;
-              }
-            }
-          }
-        }
-      }
-    }
-
-    return injected;
+    // This method is called with an empty moduleExports map,
+    // so it simply returns an empty string
+    return "";
   }
 }

@@ -208,6 +208,58 @@ describe("DependencyGraph", () => {
     expect(graph.modules.has("used.js")).toBe(true);
   });
 
+  it("should prune multiple modules with shared dependency", () => {
+    const graph = new DependencyGraph();
+    graph.addModule("entry.js", {
+      imports: [],
+      exports: [],
+      dynamicImports: [],
+      hasSideEffects: false,
+      isPure: true,
+    });
+    graph.addModule("used.js", {
+      imports: [],
+      exports: [],
+      dynamicImports: [],
+      hasSideEffects: false,
+      isPure: true,
+    });
+    graph.addModule("shared.js", {
+      imports: [],
+      exports: [],
+      dynamicImports: [],
+      hasSideEffects: false,
+      isPure: true,
+    });
+    graph.addModule("unused1.js", {
+      imports: [],
+      exports: [],
+      dynamicImports: [],
+      hasSideEffects: false,
+      isPure: true,
+    });
+    graph.addModule("unused2.js", {
+      imports: [],
+      exports: [],
+      dynamicImports: [],
+      hasSideEffects: false,
+      isPure: true,
+    });
+    // entry.js -> used.js
+    graph.addDependency("entry.js", "used.js");
+    // unused1.js and unused2.js both depend on shared.js
+    graph.addDependency("unused1.js", "shared.js");
+    graph.addDependency("unused2.js", "shared.js");
+
+    graph.prune(["entry.js"]);
+
+    expect(graph.modules.has("entry.js")).toBe(true);
+    expect(graph.modules.has("used.js")).toBe(true);
+    expect(graph.modules.has("unused1.js")).toBe(false);
+    expect(graph.modules.has("unused2.js")).toBe(false);
+    expect(graph.modules.has("shared.js")).toBe(false);
+  });
+
   it("should throw on missing from module in addDependency", () => {
     const graph = new DependencyGraph();
     graph.addModule("b.js", {
@@ -694,6 +746,53 @@ describe("ASTModuleParser", () => {
     );
     // Dynamic imports are parsed and stored in dynamicImports array
     expect(Array.isArray(result.dynamicImports)).toBe(true);
+    expect(result.dynamicImports).toContain("./dynamic.js");
+  });
+
+  it("should detect side effects from console.log call", () => {
+    const parser = new ASTModuleParser();
+    const result = parser.parseModule(
+      'console.log("test");',
+      "test.js"
+    );
+    expect(result.hasSideEffects).toBe(true);
+    expect(result.isPure).toBe(false);
+  });
+
+  it("should detect side effects from window access", () => {
+    const parser = new ASTModuleParser();
+    const result = parser.parseModule(
+      'window.alert("hello");',
+      "test.js"
+    );
+    expect(result.hasSideEffects).toBe(true);
+  });
+
+  it("should detect side effects from document access", () => {
+    const parser = new ASTModuleParser();
+    const result = parser.parseModule(
+      'document.getElementById("test");',
+      "test.js"
+    );
+    expect(result.hasSideEffects).toBe(true);
+  });
+
+  it("should detect side effects from process access", () => {
+    const parser = new ASTModuleParser();
+    const result = parser.parseModule(
+      'process.exit(0);',
+      "test.js"
+    );
+    expect(result.hasSideEffects).toBe(true);
+  });
+
+  it("should detect side effects from global access", () => {
+    const parser = new ASTModuleParser();
+    const result = parser.parseModule(
+      'global.setTimeout(() => {}, 100);',
+      "test.js"
+    );
+    expect(result.hasSideEffects).toBe(true);
   });
 
   it("should parse export all declaration", () => {

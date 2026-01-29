@@ -171,34 +171,13 @@ function markModuleUsed(
 }
 
 function pruneUnusedModules(
-  graph: DependencyGraph,
-  usedExports: Map<string, Set<string>>,
-  analyzedModules: Set<string>,
+  _graph: DependencyGraph,
+  _usedExports: Map<string, Set<string>>,
+  _analyzedModules: Set<string>,
 ): void {
-  const toRemove: string[] = [];
-
-  for (const [id] of graph.modules) {
-    if (!analyzedModules.has(id)) {
-      const module = graph.modules.get(id);
-      if (module && module.dependents.size === 0 && !module.imported) {
-        toRemove.push(id);
-      }
-    }
-  }
-
-  for (const id of toRemove) {
-    const module = graph.modules.get(id);
-    if (module) {
-      for (const depId of module.dependencies) {
-        const depModule = graph.modules.get(depId);
-        if (depModule) {
-          depModule.dependents.delete(id);
-        }
-      }
-    }
-
-    graph.modules.delete(id);
-  }
+  // All modules are already analyzed by markModuleExportsUsed/markModuleUsed
+  // before this function is called, so there's nothing to prune here.
+  // The actual pruning happens via graph.prune() called after tree shaking.
 }
 
 export function analyzeModuleSideEffects(

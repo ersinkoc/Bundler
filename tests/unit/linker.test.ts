@@ -1224,5 +1224,23 @@ describe("BundleLinker", () => {
 
       expect(result["main.js"]).toBeDefined();
     });
+
+    it("should handle IIFE format with no exports", () => {
+      const graph = new DependencyGraph();
+      graph.addModule("entry.js", {
+        imports: [],
+        exports: [],
+        dynamicImports: [],
+        hasSideEffects: false,
+        isPure: true,
+        code: "console.log('hello world');",
+      });
+
+      const linker = new BundleLinker({ format: "iife", globalName: "App" });
+      const result = linker.link(graph, ["entry.js"], "iife");
+
+      expect(result["main.js"]).toBeDefined();
+      expect(result["main.js"].contents).toContain("return {}");
+    });
   });
 });

@@ -93,34 +93,15 @@ export class ASTModuleParser {
             type: "all",
             source,
           });
-        } else if (node.type === "TSTypeAliasDeclaration") {
-          const typeAlias = node as any;
-          if (typeAlias.id?.name) {
-            exports.push({ type: "named", name: typeAlias.id.name });
-          }
-        } else if (node.type === "TSEnumDeclaration") {
-          const enumDecl = node as any;
-          if (enumDecl.id?.name) {
-            exports.push({ type: "named", name: enumDecl.id.name });
-          }
-        } else if (node.type === "TSInterfaceDeclaration") {
-          const interfaceDecl = node as any;
-          if (interfaceDecl.id?.name) {
-            exports.push({ type: "named", name: interfaceDecl.id.name });
-          }
-        } else if (node.type === "CallExpression") {
-          const callExpr = node as acorn.CallExpression;
-          if ((callExpr.callee as any).type === "Import") {
-            if (callExpr.arguments.length > 0) {
-              const arg = callExpr.arguments[0];
-              if (
-                arg &&
-                arg.type === "Literal" &&
-                typeof arg.value === "string"
-              ) {
-                dynamicImports.push(arg.value);
-              }
-            }
+        } else if (node.type === "ImportExpression") {
+          // Handle dynamic import() expressions
+          const importExpr = node as any;
+          if (
+            importExpr.source &&
+            importExpr.source.type === "Literal" &&
+            typeof importExpr.source.value === "string"
+          ) {
+            dynamicImports.push(importExpr.source.value);
           }
         }
 
@@ -133,7 +114,13 @@ export class ASTModuleParser {
           )
             continue;
           const child = (node as any)[key];
-          if (child && typeof child === "object" && child.type) {
+          if (Array.isArray(child)) {
+            for (const item of child) {
+              if (item && typeof item === "object" && item.type) {
+                walk(item);
+              }
+            }
+          } else if (child && typeof child === "object" && child.type) {
             walk(child);
           }
         }
@@ -207,7 +194,13 @@ export class ASTModuleParser {
         if (key === "type" || key === "start" || key === "end" || key === "loc")
           continue;
         const child = (node as any)[key];
-        if (child && typeof child === "object" && child.type) {
+        if (Array.isArray(child)) {
+          for (const item of child) {
+            if (item && typeof item === "object" && item.type) {
+              walk(item);
+            }
+          }
+        } else if (child && typeof child === "object" && child.type) {
           walk(child);
         }
       }
