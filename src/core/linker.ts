@@ -12,6 +12,7 @@ export interface LinkerOptions {
   format: OutputFormat;
   globalName?: string;
   treeshake?: boolean;
+  manualChunks?: Record<string, string[]>;
 }
 
 export class BundleLinker {
@@ -33,7 +34,6 @@ export class BundleLinker {
     this.moduleIdToVarName = new Map();
     this.varNameCounter = 0;
     this.usedExports = this.collectUsedExports(graph, entryPoints);
-    this.usedExports = usedExports;
 
     const buildOrder = graph.getBuildOrder();
     return this.generateChunks(graph, entryPoints, buildOrder, format);
@@ -80,7 +80,7 @@ export class BundleLinker {
           code;
 
         if (this.options.format === "iife") {
-          code = this.wrapInIIFE(code, "App", []);
+          code = this.wrapInIIFE(code, this.options.globalName || "App", []);
         } else if (this.options.format === "cjs") {
           code = this.wrapInCJS(code, []);
         } else {
@@ -118,21 +118,17 @@ export class BundleLinker {
       chunks.set("main", entryChunkCode);
     }
 
-    const outputs: any[] = [];
+    const outputBundle: OutputBundle = {};
     for (const [name, chunk] of chunks) {
-      outputs.push({
+      outputBundle[chunk.fileName] = {
         path: chunk.fileName,
         contents: chunk.code,
         size: chunk.code.length,
         format: this.options.format,
-        entry: chunk.isEntry ? chunk.fileName : undefined,
-      });
+      };
     }
 
-    return {
-      outputs,
-      entries: outputs,
-    };
+    return outputBundle;
   }
 
   private generateEntryChunk(
@@ -179,7 +175,7 @@ export class BundleLinker {
         module.info,
         graph,
         modules,
-        [],
+        entryPoints,
       );
 
       code += moduleCode + "\n";
@@ -189,7 +185,7 @@ export class BundleLinker {
       this.injectModuleExports(code, new Map(), modules, graph) + "\n" + code;
 
     if (format === "iife") {
-      code = this.wrapInIIFE(code, "App", exports);
+      code = this.wrapInIIFE(code, this.options.globalName || "App", exports);
     } else if (format === "cjs") {
       code = this.wrapInCJS(code, exports);
     }

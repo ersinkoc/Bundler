@@ -58,7 +58,24 @@ export class ASTModuleParser {
           const exportDecl = node as acorn.ExportNamedDeclaration;
           const source = exportDecl.source?.value as string | undefined;
 
-          if (exportDecl.specifiers) {
+          // Handle: export const foo = 1, export function bar() {}, export class Baz {}
+          if (exportDecl.declaration) {
+            const decl = exportDecl.declaration as any;
+            if (decl.type === "VariableDeclaration") {
+              for (const d of decl.declarations) {
+                if (d.id.type === "Identifier") {
+                  exports.push({ type: "named", name: d.id.name });
+                }
+              }
+            } else if (decl.type === "FunctionDeclaration" && decl.id?.name) {
+              exports.push({ type: "named", name: decl.id.name });
+            } else if (decl.type === "ClassDeclaration" && decl.id?.name) {
+              exports.push({ type: "named", name: decl.id.name });
+            }
+          }
+
+          // Handle: export { foo, bar }
+          if (exportDecl.specifiers && exportDecl.specifiers.length > 0) {
             for (const spec of exportDecl.specifiers) {
               exports.push({
                 type: "named",
@@ -76,25 +93,6 @@ export class ASTModuleParser {
             type: "all",
             source,
           });
-        } else if (node.type === "FunctionDeclaration") {
-          const funcDecl = node as acorn.FunctionDeclaration;
-          if (funcDecl.id?.name) {
-            exports.push({ type: "named", name: funcDecl.id.name });
-          }
-        } else if (node.type === "ClassDeclaration") {
-          const classDecl = node as acorn.ClassDeclaration;
-          if (classDecl.id?.name) {
-            exports.push({ type: "named", name: classDecl.id.name });
-          }
-        } else if (node.type === "VariableDeclaration") {
-          const varDecl = node as acorn.VariableDeclaration;
-          if (varDecl.declarations) {
-            for (const decl of varDecl.declarations) {
-              if (decl.id.type === "Identifier") {
-                exports.push({ type: "named", name: decl.id.name });
-              }
-            }
-          }
         } else if (node.type === "TSTypeAliasDeclaration") {
           const typeAlias = node as any;
           if (typeAlias.id?.name) {
@@ -140,6 +138,11 @@ export class ASTModuleParser {
           }
         }
       };
+
+      // Walk through all top-level statements
+      for (const node of ast.body) {
+        walk(node);
+      }
 
       return {
         imports,

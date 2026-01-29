@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { bundle } from "../../dist/index.js";
+import { bundle } from "../../src/index.js";
 
 describe("Entry Module Export Preservation", () => {
   let testDir: string;
