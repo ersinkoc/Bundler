@@ -679,4 +679,30 @@ describe("KernelImpl", () => {
 
     expect(() => kernel.use(plugin)).toThrow(PluginError);
   });
+
+  it("should handle non-Error thrown with onError handler after initialization", async () => {
+    const kernel = new KernelImpl({
+      entry: "src/index.ts",
+      outDir: "dist",
+      format: "esm",
+      cwd: process.cwd(),
+    } as any);
+
+    await kernel.initialize();
+
+    let errorReceived: Error | null = null;
+    const plugin: Plugin = {
+      name: "late-string-with-handler-plugin",
+      apply: () => {
+        throw "Non-Error string";
+      },
+      onError: (error) => {
+        errorReceived = error;
+      },
+    };
+
+    expect(() => kernel.use(plugin)).toThrow(PluginError);
+    expect(errorReceived).toBeInstanceOf(Error);
+    expect(errorReceived?.message).toBe("Non-Error string");
+  });
 });
